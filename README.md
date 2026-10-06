@@ -50,6 +50,17 @@ flutter test
 flutter build apk --debug
 ```
 
+이 PC의 Android SDK는 프로젝트 내부 `.tools/android-sdk`에 설치했습니다.
+PowerShell에서 다시 빌드하려면:
+
+```powershell
+$env:ANDROID_HOME = "$PWD\.tools\android-sdk"
+$env:JAVA_HOME = 'D:\jdk-21.0.1'
+flutter build apk --debug
+```
+
+디버그 APK 출력 경로: `build/app/outputs/flutter-apk/app-debug.apk`.
+
 실제 기기에서는 방 생성/코드 참가, 양궁·농구 터치와 애니메이션,
 키보드, 뒤로 가기, 네트워크 복구, 백그라운드 복귀 후 WebSocket 재접속,
 앱 재시작 후 clientId 유지 여부를 확인해야 합니다.
@@ -67,5 +78,7 @@ Web Share API 등 브라우저 전용 기능은 WebView에서 별도 확인이 �
 ## 현재 검증 결과 (2026-10-06)
 
 Flutter 정적 분석은 오류 없이 통과했고 주소/링크 정책 테스트 3개가 통과했습니다.
-Android 디버그 빌드는 Android SDK를 찾지 못해 완료하지 못했습니다.
+프로젝트 내부 Android SDK 설치 후 디버그 APK 빌드를 완료했습니다.
+Windows의 D 드라이브 프로젝트/C 드라이브 Pub 캐시 조합에서 발생한
+Kotlin 증분 캐시 오류를 피하기 위해 `kotlin.incremental=false`를 설정했습니다.
 iOS 빌드와 실제 기기 WebView/게임 동작은 미검증입니다.
