@@ -1,7 +1,7 @@
 name: noopi_app
 description: 누피 모바일 웹을 표시하는 Flutter 앱.
 publish_to: none
-version: 0.1.0+1
+version: 0.1.0+5
 
 environment:
   sdk: ^3.13.2
@@ -9,13 +9,39 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  webview_flutter: ^4.14.1
+  flutter_inappwebview: ^6.1.5
   url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.8
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/brand/
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/brand/app-icon.png
+  min_sdk_android: 24
+  remove_alpha_ios: true
+  adaptive_icon_background: '#6540E8'
+  adaptive_icon_foreground: assets/brand/app-icon.png
+  adaptive_icon_foreground_inset: 0
+
+flutter_native_splash:
+  color: '#101426'
+  color_dark: '#101426'
+  android: true
+  ios: true
+  web: false
+  android_12:
+    color: '#101426'
+    color_dark: '#101426'
+    image: assets/brand/transparent.png
+    image_dark: assets/brand/transparent.png

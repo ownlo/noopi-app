@@ -3,9 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import 'web_config.dart';
+import 'noopi_splash.dart';
 
 class NoopiWebViewPage extends StatefulWidget {
   const NoopiWebViewPage({super.key});
@@ -16,61 +17,44 @@ class NoopiWebViewPage extends StatefulWidget {
 
 class _NoopiWebViewPageState extends State<NoopiWebViewPage> {
   final _config = WebConfig.fromEnvironment();
-  late final WebViewController _controller;
+  InAppWebViewController? _controller;
   int _progress = 0;
   bool _failed = false;
-  bool _ready = false;
+  int _webViewGeneration = 0;
   bool _handlingBack = false;
+  bool _initialLoading = true;
+  Timer? _initialLoadTimeout;
 
   @override
   void initState() {
     super.initState();
-    _controller = WebViewController();
-    unawaited(_initialize());
+    _startLoadTimeout();
   }
 
-  Future<void> _initialize() async {
-    try {
-      await _controller.setJavaScriptMode(JavaScriptMode.unrestricted);
-      await _controller.setBackgroundColor(const Color(0xFF101426));
-      await _controller.setNavigationDelegate(
-        NavigationDelegate(
-          onNavigationRequest: _navigate,
-          onPageStarted: (_) {
-            if (mounted) {
-              setState(() {
-                _progress = 0;
-                _failed = false;
-              });
-            }
-          },
-          onProgress: (value) {
-            if (mounted) setState(() => _progress = value);
-          },
-          onPageFinished: (_) {
-            if (mounted) setState(() => _progress = 100);
-          },
-          onWebResourceError: (error) {
-            if (error.isForMainFrame == true) _showError();
-          },
-        ),
-      );
-      _ready = true;
-      await _controller.loadRequest(_config.initialUri);
-    } catch (_) {
-      _showError();
-    }
+  void _startLoadTimeout() {
+    _initialLoadTimeout?.cancel();
+    _initialLoadTimeout = Timer(const Duration(seconds: 25), () {
+      if (_initialLoading) _showError();
+    });
+  }
+
+  @override
+  void dispose() {
+    _initialLoadTimeout?.cancel();
+    super.dispose();
   }
 
   void _showError() {
+    _initialLoadTimeout?.cancel();
     if (mounted) setState(() => _failed = true);
   }
 
-  Future<NavigationDecision> _navigate(NavigationRequest request) async {
-    if (!request.isMainFrame) return NavigationDecision.navigate;
-    final uri = Uri.tryParse(request.url);
-    if (uri == null) return NavigationDecision.prevent;
-    if (_config.isInternal(uri)) return NavigationDecision.navigate;
+  Future<NavigationActionPolicy> _navigate(NavigationAction action) async {
+    if (action.isForMainFrame == false) return NavigationActionPolicy.ALLOW;
+    final url = action.request.url;
+    final uri = url == null ? null : Uri.tryParse(url.toString());
+    if (uri == null) return NavigationActionPolicy.CANCEL;
+    if (_config.isInternal(uri)) return NavigationActionPolicy.ALLOW;
     if (WebConfig.isWebUri(uri) ||
         uri.scheme == 'mailto' ||
         uri.scheme == 'tel') {
@@ -82,7 +66,7 @@ class _NoopiWebViewPageState extends State<NoopiWebViewPage> {
         _showLinkError();
       }
     }
-    return NavigationDecision.prevent;
+    return NavigationActionPolicy.CANCEL;
   }
 
   void _showLinkError() {
@@ -97,17 +81,25 @@ class _NoopiWebViewPageState extends State<NoopiWebViewPage> {
       _failed = false;
       _progress = 0;
     });
-    if (!_ready) {
-      await _initialize();
+    if (_initialLoading) _startLoadTimeout();
+    final controller = _controller;
+    if (controller == null) {
+      setState(() => _webViewGeneration++);
       return;
     }
     try {
       // Keep the current room route when retrying a failed connection.
-      final current = Uri.tryParse(await _controller.currentUrl() ?? '');
-      await _controller.loadRequest(
-        current != null && _config.isInternal(current)
-            ? current
-            : _config.initialUri,
+      final current = Uri.tryParse(
+        (await controller.getUrl())?.toString() ?? '',
+      );
+      await controller.loadUrl(
+        urlRequest: URLRequest(
+          url: WebUri.uri(
+            current != null && _config.isInternal(current)
+                ? current
+                : _config.initialUri,
+          ),
+        ),
       );
     } catch (_) {
       _showError();
@@ -118,8 +110,9 @@ class _NoopiWebViewPageState extends State<NoopiWebViewPage> {
     if (_handlingBack) return;
     _handlingBack = true;
     try {
-      if (await _controller.canGoBack()) {
-        await _controller.goBack();
+      final controller = _controller;
+      if (controller != null && await controller.canGoBack()) {
+        await controller.goBack();
       } else {
         await SystemNavigator.pop();
       }
@@ -140,11 +133,68 @@ class _NoopiWebViewPageState extends State<NoopiWebViewPage> {
       body: SafeArea(
         child: Stack(
           children: [
-            WebViewWidget(controller: _controller),
-            if (!_failed && _progress < 100)
+            InAppWebView(
+              key: ValueKey(_webViewGeneration),
+              initialUrlRequest: URLRequest(
+                url: WebUri.uri(_config.initialUri),
+              ),
+              initialSettings: InAppWebViewSettings(
+                javaScriptEnabled: true,
+                domStorageEnabled: true,
+                useShouldOverrideUrlLoading: true,
+                useHybridComposition: true,
+                hardwareAcceleration: true,
+                transparentBackground: false,
+                // The app already paints the navy background behind the view.
+                underPageBackgroundColor: const Color(0xFF101426),
+              ),
+              onWebViewCreated: (controller) => _controller = controller,
+              shouldOverrideUrlLoading: (_, action) => _navigate(action),
+              onLoadStart: (_, _) {
+                if (!mounted) return;
+                setState(() {
+                  _progress = 0;
+                  _failed = false;
+                });
+              },
+              onProgressChanged: (_, value) {
+                if (mounted && _progress != value) {
+                  setState(() => _progress = value);
+                }
+              },
+              onLoadStop: (_, _) {
+                _initialLoadTimeout?.cancel();
+                if (!mounted || _failed) return;
+                setState(() {
+                  _progress = 100;
+                  _initialLoading = false;
+                });
+              },
+              onReceivedError: (_, request, _) {
+                if (request.isForMainFrame == true) _showError();
+              },
+              onReceivedHttpError: (_, request, response) {
+                if (request.isForMainFrame == true &&
+                    (response.statusCode ?? 0) >= 400) {
+                  _showError();
+                }
+              },
+            ),
+            if (!_initialLoading && !_failed && _progress < 100)
               LinearProgressIndicator(
                 value: _progress == 0 ? null : _progress / 100,
               ),
+            Positioned.fill(
+              child: IgnorePointer(
+                ignoring: !_initialLoading || _failed,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 350),
+                  child: _initialLoading && !_failed
+                      ? const NoopiSplash()
+                      : const SizedBox.shrink(),
+                ),
+              ),
+            ),
             if (_failed)
               Positioned.fill(
                 child: ColoredBox(
