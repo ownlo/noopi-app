@@ -1,0 +1,6 @@
+# Copy to key.properties and enter your upload keystore credentials.
+# Relative storeFile paths are resolved from the android directory.
+storePassword=REPLACE_WITH_STORE_PASSWORD
+keyPassword=REPLACE_WITH_KEY_PASSWORD
+keyAlias=upload
+storeFile=upload-keystore.jks

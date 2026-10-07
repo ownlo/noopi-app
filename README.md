@@ -31,7 +31,9 @@ flutter build apk --release
 ```
 
 앱 APK: `build/app/outputs/flutter-apk/app-release.apk` (버전 `0.1.1+2015`).
-현재 release 설정도 debug 서명을 사용하므로 스토어 배포용 서명은 별도로 필요합니다.
+release 빌드는 `android/key.properties`의 업로드 키로 서명합니다.
+키가 없는 환경에서는 `android/key.properties.example`을 참고해 설정해야 하며,
+debug 키로 자동 대체하지 않습니다. 스토어 배포 절차는 `docs/android-release.md`를 참고하세요.
 
 주소를 바꾸려면:
 
@@ -115,8 +117,9 @@ QR 스캔, Universal Links/App Links,
 Web Share API 등 브라우저 전용 기능은 WebView에서 별도 확인이 필요합니다.
 외부 QR 링크는 현재 브라우저로 열립니다.
 
-스토어 배포 전 앱 ID(`kr.noopi.noopi_app`), 버전과 배포 서명을
-확정해야 합니다. 생성된 Android release 설정은 debug 서명을 사용합니다.
+스토어 배포 앱 ID는 `kr.noopi.noopi_app`이며, 첫 업로드 전에 확인해야 합니다.
+release 서명은 업로드 키를 사용합니다. Play Console 등록정보와 정책 신고,
+테스트 트랙 배포는 별도로 진행해야 합니다.
 
 ## 웹뷰 교체 검증 (2026-10-07)
 

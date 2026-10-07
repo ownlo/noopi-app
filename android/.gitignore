@@ -12,3 +12,7 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# Track this project's upload signing files at the owner's request.
+!/key.properties
+!/upload-keystore.jks
