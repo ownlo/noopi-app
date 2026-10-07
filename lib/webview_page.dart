@@ -23,6 +23,8 @@ class _NoopiWebViewPageState extends State<NoopiWebViewPage> {
   int _webViewGeneration = 0;
   bool _handlingBack = false;
   bool _initialLoading = true;
+  bool _webReady = false;
+  bool _splashFinished = false;
   Timer? _initialLoadTimeout;
 
   @override
@@ -47,6 +49,14 @@ class _NoopiWebViewPageState extends State<NoopiWebViewPage> {
   void _showError() {
     _initialLoadTimeout?.cancel();
     if (mounted) setState(() => _failed = true);
+  }
+
+  void _finishSplash() {
+    if (!mounted) return;
+    setState(() {
+      _splashFinished = true;
+      if (_webReady && !_failed) _initialLoading = false;
+    });
   }
 
   Future<NavigationActionPolicy> _navigate(NavigationAction action) async {
@@ -155,6 +165,7 @@ class _NoopiWebViewPageState extends State<NoopiWebViewPage> {
                 setState(() {
                   _progress = 0;
                   _failed = false;
+                  if (_initialLoading) _webReady = false;
                 });
               },
               onProgressChanged: (_, value) {
@@ -167,7 +178,8 @@ class _NoopiWebViewPageState extends State<NoopiWebViewPage> {
                 if (!mounted || _failed) return;
                 setState(() {
                   _progress = 100;
-                  _initialLoading = false;
+                  _webReady = true;
+                  _initialLoading = !_splashFinished;
                 });
               },
               onReceivedError: (_, request, _) {
@@ -184,17 +196,8 @@ class _NoopiWebViewPageState extends State<NoopiWebViewPage> {
               LinearProgressIndicator(
                 value: _progress == 0 ? null : _progress / 100,
               ),
-            Positioned.fill(
-              child: IgnorePointer(
-                ignoring: !_initialLoading || _failed,
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 350),
-                  child: _initialLoading && !_failed
-                      ? const NoopiSplash()
-                      : const SizedBox.shrink(),
-                ),
-              ),
-            ),
+            if (_initialLoading && !_failed)
+              Positioned.fill(child: NoopiSplash(onComplete: _finishSplash)),
             if (_failed)
               Positioned.fill(
                 child: ColoredBox(

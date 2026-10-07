@@ -79,7 +79,7 @@ void main() {
   }
 
   testWidgets(
-    'successful load dismisses splash; subresource errors do not block it',
+    'fast web readiness waits for the logo intro; subresource errors do not block it',
     (tester) async {
       await mount(tester);
       expect(find.byType(NoopiSplash), findsOneWidget);
@@ -96,7 +96,10 @@ void main() {
       );
       platform.params.onLoadStop!(controller, WebUri('https://noopi.kr'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(NoopiSplash), findsOneWidget);
+      await tester.pump(NoopiSplash.duration);
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump();
       expect(find.byType(NoopiSplash), findsNothing);
       expect(find.text('누피에 연결하지 못했어요.'), findsNothing);
       await tester.pumpWidget(const SizedBox());
@@ -132,9 +135,22 @@ void main() {
   );
 
   testWidgets('initial load timeout exposes retry', (tester) async {
-    await mount(tester);
+    await tester.pumpWidget(const NoopiApp());
+    platform.params.onWebViewCreated!(controller);
     await tester.pump(const Duration(seconds: 26));
     expect(find.text('다시 시도'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('settled logo remains while the web is loading', (tester) async {
+    await mount(tester);
+    await tester.pump(const Duration(seconds: 7));
+    await tester.pump();
+    expect(find.byType(NoopiSplash), findsOneWidget);
+    platform.params.onLoadStop!(controller, WebUri('https://noopi.kr'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byType(NoopiSplash), findsNothing);
     await tester.pumpWidget(const SizedBox());
   });
 
